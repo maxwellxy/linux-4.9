@@ -211,14 +211,14 @@ static int mlxsw_thermal_get_temp(struct thermal_zone_device *tzdev,
 	unsigned int temp;
 	int err;
 
-	mlxsw_reg_mtmp_pack(mtmp_pl, 0, false, false);
+	mlxsw_reg_mtmp_pack(mtmp_pl, 0, false, false, 0, 0);
 
 	err = mlxsw_reg_query(thermal->core, MLXSW_REG(mtmp), mtmp_pl);
 	if (err) {
 		dev_err(dev, "Failed to query temp sensor\n");
 		return err;
 	}
-	mlxsw_reg_mtmp_unpack(mtmp_pl, &temp, NULL, NULL);
+	mlxsw_reg_mtmp_unpack(mtmp_pl, &temp, NULL, NULL, NULL, NULL);
 
 	*p_temp = (int) temp;
 	return 0;

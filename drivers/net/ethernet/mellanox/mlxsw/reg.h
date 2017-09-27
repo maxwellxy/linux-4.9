@@ -4689,6 +4689,19 @@ MLXSW_ITEM32(reg, mtmp, mtr, 0x08, 30, 1);
  */
 MLXSW_ITEM32(reg, mtmp, max_temperature, 0x08, 0, 16);
 
+/* reg_mtmp_lo_temperature
+ * The high threshold of warning event.
+ * Must be at least 5 degrees lower than high temperature threshold.
+ * Access: RW
+ */
+MLXSW_ITEM32(reg, mtmp, high_temperature, 0x0C, 0, 16);
+
+/* reg_mtmp_high_temperature
+ * The high threshold of warning event.
+ * Access: RW
+ */
+MLXSW_ITEM32(reg, mtmp, lo_temperature, 0x10, 0, 16);
+
 #define MLXSW_REG_MTMP_SENSOR_NAME_SIZE 8
 
 /* reg_mtmp_sensor_name
@@ -4699,16 +4712,22 @@ MLXSW_ITEM_BUF(reg, mtmp, sensor_name, 0x18, MLXSW_REG_MTMP_SENSOR_NAME_SIZE);
 
 static inline void mlxsw_reg_mtmp_pack(char *payload, u8 sensor_index,
 				       bool max_temp_enable,
-				       bool max_temp_reset)
+				       bool max_temp_reset,
+				       unsigned int lo_temp,
+				       unsigned int high_temp)
 {
 	MLXSW_REG_ZERO(mtmp, payload);
 	mlxsw_reg_mtmp_sensor_index_set(payload, sensor_index);
 	mlxsw_reg_mtmp_mte_set(payload, max_temp_enable);
 	mlxsw_reg_mtmp_mtr_set(payload, max_temp_reset);
+	mlxsw_reg_mtmp_high_temperature_set(payload, high_temp);
+	mlxsw_reg_mtmp_lo_temperature_set(payload, lo_temp);
 }
 
 static inline void mlxsw_reg_mtmp_unpack(char *payload, unsigned int *p_temp,
 					 unsigned int *p_max_temp,
+					 unsigned int *p_lo_temp,
+					 unsigned int *p_high_temp,
 					 char *sensor_name)
 {
 	u16 temp;
@@ -4720,6 +4739,12 @@ static inline void mlxsw_reg_mtmp_unpack(char *payload, unsigned int *p_temp,
 	if (p_max_temp) {
 		temp = mlxsw_reg_mtmp_max_temperature_get(payload);
 		*p_max_temp = MLXSW_REG_MTMP_TEMP_TO_MC(temp);
+	}
+	if (p_high_temp) {
+		*p_high_temp = mlxsw_reg_mtmp_high_temperature_get(payload);
+	}
+	if (p_lo_temp) {
+		*p_lo_temp = mlxsw_reg_mtmp_lo_temperature_get(payload);
 	}
 	if (sensor_name)
 		mlxsw_reg_mtmp_sensor_name_memcpy_from(payload, sensor_name);

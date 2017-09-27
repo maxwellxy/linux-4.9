@@ -45,6 +45,11 @@
 #define MLXSW_HWMON_ATTR_COUNT (MLXSW_HWMON_TEMP_SENSOR_MAX_COUNT * 4 + \
 				MLXSW_MFCR_TACHOS_MAX + MLXSW_MFCR_PWMS_MAX)
 
+#define MLXSW_HWMON_DIODE_LOW_TEMP	0x2f8
+#define MLXSW_HWMON_DIODE_HIGH_TEMP	0x348
+#define MLXSW_HWMON_AMBIENT_LOW_TEMP	0x4b0
+#define MLXSW_HWMON_AMBIENT_HIGH_TEMP	0x4e0
+
 struct mlxsw_hwmon_attr {
 	struct device_attribute dev_attr;
 	struct mlxsw_hwmon *hwmon;
@@ -75,13 +80,13 @@ static ssize_t mlxsw_hwmon_temp_show(struct device *dev,
 	int err;
 
 	mlxsw_reg_mtmp_pack(mtmp_pl, mlwsw_hwmon_attr->type_index,
-			    false, false);
+			    false, false, 0, 0);
 	err = mlxsw_reg_query(mlxsw_hwmon->core, MLXSW_REG(mtmp), mtmp_pl);
 	if (err) {
 		dev_err(mlxsw_hwmon->bus_info->dev, "Failed to query temp sensor\n");
 		return err;
 	}
-	mlxsw_reg_mtmp_unpack(mtmp_pl, &temp, NULL, NULL);
+	mlxsw_reg_mtmp_unpack(mtmp_pl, &temp, NULL, NULL, NULL, NULL);
 	return sprintf(buf, "%u\n", temp);
 }
 
@@ -97,13 +102,13 @@ static ssize_t mlxsw_hwmon_temp_max_show(struct device *dev,
 	int err;
 
 	mlxsw_reg_mtmp_pack(mtmp_pl, mlwsw_hwmon_attr->type_index,
-			    false, false);
+			    false, false, 0, 0);
 	err = mlxsw_reg_query(mlxsw_hwmon->core, MLXSW_REG(mtmp), mtmp_pl);
 	if (err) {
 		dev_err(mlxsw_hwmon->bus_info->dev, "Failed to query temp sensor\n");
 		return err;
 	}
-	mlxsw_reg_mtmp_unpack(mtmp_pl, NULL, &temp_max, NULL);
+	mlxsw_reg_mtmp_unpack(mtmp_pl, NULL, &temp_max, NULL, NULL, NULL);
 	return sprintf(buf, "%u\n", temp_max);
 }
 
@@ -124,11 +129,24 @@ static ssize_t mlxsw_hwmon_temp_rst_store(struct device *dev,
 	if (val != 1)
 		return -EINVAL;
 
-	mlxsw_reg_mtmp_pack(mtmp_pl, mlwsw_hwmon_attr->type_index, true, true);
+	if (mlwsw_hwmon_attr->type_index)
+		mlxsw_reg_mtmp_pack(mtmp_pl, mlwsw_hwmon_attr->type_index,
+				    true, true, MLXSW_HWMON_AMBIENT_LOW_TEMP,
+				    MLXSW_HWMON_AMBIENT_HIGH_TEMP);
+	else
+		mlxsw_reg_mtmp_pack(mtmp_pl, mlwsw_hwmon_attr->type_index,
+				    true, true, MLXSW_HWMON_DIODE_LOW_TEMP,
+				    MLXSW_HWMON_DIODE_HIGH_TEMP);
+
+	err = mlxsw_reg_query(mlxsw_hwmon->core, MLXSW_REG(mtmp), mtmp_pl);
+	if (err) {
+		dev_err(mlxsw_hwmon->bus_info->dev, "Failed to query temp sensor\n");
+		return err;
+	}
 	err = mlxsw_reg_write(mlxsw_hwmon->core, MLXSW_REG(mtmp), mtmp_pl);
 	if (err) {
 		dev_err(mlxsw_hwmon->bus_info->dev, "Failed to reset temp sensor history\n");
-		return err;
+		/* return err; */
 	}
 	return len;
 }
@@ -275,13 +293,20 @@ static int mlxsw_hwmon_temp_init(struct mlxsw_hwmon *mlxsw_hwmon)
 	}
 	sensor_count = mlxsw_reg_mtcap_sensor_count_get(mtcap_pl);
 	for (i = 0; i < sensor_count; i++) {
-		mlxsw_reg_mtmp_pack(mtmp_pl, i, true, true);
+		if (i)
+			mlxsw_reg_mtmp_pack(mtmp_pl, i, true, true,
+					    MLXSW_HWMON_AMBIENT_LOW_TEMP,
+					    MLXSW_HWMON_AMBIENT_HIGH_TEMP);
+		else
+			mlxsw_reg_mtmp_pack(mtmp_pl, i, true, true,
+					    MLXSW_HWMON_DIODE_LOW_TEMP,
+					    MLXSW_HWMON_DIODE_HIGH_TEMP);
 		err = mlxsw_reg_write(mlxsw_hwmon->core,
 				      MLXSW_REG(mtmp), mtmp_pl);
 		if (err) {
 			dev_err(mlxsw_hwmon->bus_info->dev, "Failed to setup temp sensor number %d\n",
 				i);
-			return err;
+			/* return err; */
 		}
 		mlxsw_hwmon_attr_add(mlxsw_hwmon,
 				     MLXSW_HWMON_ATTR_TYPE_TEMP, i, i);
